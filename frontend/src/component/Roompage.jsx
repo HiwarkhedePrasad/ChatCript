@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import Lobby from "./lobby";
 import ChatRoom from "./chatroom";
 
-const socket = io("http://localhost:5000");
+const socket = io("https://chatcript.onrender.com");
 
 const RoomPage = () => {
   const [username, setUsername] = useState("");
