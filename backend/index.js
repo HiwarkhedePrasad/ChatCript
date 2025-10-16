@@ -15,6 +15,13 @@ const io = new Server(server, {
 const rooms = {};
 const userSocketMap = {};
 
+// Helper function to broadcast updated user list
+const broadcastUserList = (roomName) => {
+  if (rooms[roomName]) {
+    io.to(roomName).emit("update_user_list", rooms[roomName].users);
+  }
+};
+
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 
@@ -25,6 +32,7 @@ io.on("connection", (socket) => {
       userSocketMap[socket.id] = { roomName, username };
       socket.join(roomName);
       socket.emit("room_success", `Room ${roomName} created successfully.`);
+      broadcastUserList(roomName); // ✅ Send user list
       console.log(`Room ${roomName} created by ${username}.`);
     } else {
       socket.emit("room_error", "Room name already exists.");
@@ -45,6 +53,7 @@ io.on("connection", (socket) => {
           username: "System",
           message: `${username} has joined the room.`,
         });
+        broadcastUserList(roomName); // ✅ Send updated user list
         console.log(`${username} joined room ${roomName}`);
       } else {
         socket.emit("room_error", "Incorrect password.");
@@ -61,14 +70,14 @@ io.on("connection", (socket) => {
     io.to(roomName).emit("receive_message", messageData);
   });
 
-  // ✅ NEW: Handle file transfer
+  // Handle file transfer
   socket.on("send_file", ({ roomName, username, fileName }, file) => {
     console.log(`File "${fileName}" sent by ${username} in room ${roomName}`);
 
     // Broadcast file to all OTHER users in the room
     socket.to(roomName).emit("receive_file", { username, fileName }, file);
 
-    // Optional: Notify that file was sent (as a message)
+    // Notify that file was sent (as a message)
     io.to(roomName).emit("receive_message", {
       username: "System",
       message: `${username} sent a file: ${fileName}`,
@@ -89,7 +98,9 @@ io.on("connection", (socket) => {
           username: "System",
           message: `${username} has left the room.`,
         });
-        // ✅ Delete room if empty
+        broadcastUserList(roomName); // ✅ Send updated user list
+        
+        // Delete room if empty
         if (rooms[roomName].users.length === 0) {
           delete rooms[roomName];
           console.log(`Room ${roomName} deleted as all users left.`);

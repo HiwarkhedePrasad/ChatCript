@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import MessageList from "./msglist";
 import UserList from "./userlist";
 import MessageInput from "./msginput";
-import { X, Users, Paperclip } from "lucide-react"; // Added Paperclip icon
+import { X, Users, Paperclip } from "lucide-react";
 
 const ChatRoom = ({
   roomName,
@@ -10,17 +10,16 @@ const ChatRoom = ({
   messages,
   users,
   sendMessage,
-  sendFile, // ✅ Receive sendFile prop
+  sendFile,
   leaveRoom,
 }) => {
   const [isUserListVisible, setIsUserListVisible] = useState(false);
-  const fileInputRef = useRef(null); // To programmatically click
+  const fileInputRef = useRef(null);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
       sendFile(file);
-      // Reset input so same file can be sent again
       e.target.value = "";
     }
   };
@@ -43,6 +42,7 @@ const ChatRoom = ({
             <button
               onClick={() => setIsUserListVisible(!isUserListVisible)}
               className="p-2 rounded-full hover:bg-gray-200 md:hidden"
+              aria-label="Toggle user list"
             >
               <Users size={24} />
             </button>
@@ -62,26 +62,31 @@ const ChatRoom = ({
         </main>
 
         {/* Message Input + File Button */}
-        <div className="p-2 sm:p-4 border-t border-gray-300 bg-white flex items-end gap-2">
-          {/* Hidden file input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            className="hidden"
-            accept="*/*"
-          />
-          {/* File button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-            title="Send file"
-          >
-            <Paperclip size={20} />
-          </button>
-          {/* Message input */}
-          <div className="flex-1">
-            <MessageInput sendMessage={sendMessage} />
+        <div className="p-2 sm:p-4 border-t border-gray-300 bg-white">
+          <div className="flex items-center gap-2">
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+              accept="*/*"
+            />
+            
+            {/* File button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-shrink-0 p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Send file"
+              aria-label="Attach file"
+            >
+              <Paperclip size={22} />
+            </button>
+            
+            {/* Message input - takes remaining space */}
+            <div className="flex-1 min-w-0">
+              <MessageInput sendMessage={sendMessage} />
+            </div>
           </div>
         </div>
       </div>
@@ -92,12 +97,16 @@ const ChatRoom = ({
           className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={() => setIsUserListVisible(false)}
         >
-          <div className="fixed top-0 right-0 h-full bg-white z-50 w-64 shadow-lg p-4">
+          <div
+            className="fixed top-0 right-0 h-full bg-white z-50 w-64 shadow-lg p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Users</h2>
+              <h2 className="text-lg font-bold">Users ({users.length})</h2>
               <button
                 onClick={() => setIsUserListVisible(false)}
                 className="p-1 rounded-full hover:bg-gray-200"
+                aria-label="Close user list"
               >
                 <X size={20} />
               </button>
