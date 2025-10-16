@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import MessageList from "./msglist";
 import UserList from "./userlist";
 import MessageInput from "./msginput";
-import { X, Users, Menu } from "lucide-react"; // For icons, run: npm install lucide-react
+import { X, Users, Paperclip } from "lucide-react"; // Added Paperclip icon
 
 const ChatRoom = ({
   roomName,
@@ -10,9 +10,20 @@ const ChatRoom = ({
   messages,
   users,
   sendMessage,
+  sendFile, // ✅ Receive sendFile prop
   leaveRoom,
 }) => {
   const [isUserListVisible, setIsUserListVisible] = useState(false);
+  const fileInputRef = useRef(null); // To programmatically click
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      sendFile(file);
+      // Reset input so same file can be sent again
+      e.target.value = "";
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -29,7 +40,6 @@ const ChatRoom = ({
             <p className="text-sm text-gray-500">Connected as: {username}</p>
           </div>
           <div className="flex items-center space-x-4">
-            {/* Hamburger menu for user list on mobile */}
             <button
               onClick={() => setIsUserListVisible(!isUserListVisible)}
               className="p-2 rounded-full hover:bg-gray-200 md:hidden"
@@ -47,12 +57,33 @@ const ChatRoom = ({
         </header>
 
         {/* Main Chat Area */}
-        <main className="flex-1 overflow-hidden p:2 sm:p-4 flex">
+        <main className="flex-1 overflow-hidden p-2 sm:p-4 flex">
           <MessageList messages={messages} currentUser={username} />
         </main>
 
-        {/* Message Input */}
-        <MessageInput sendMessage={sendMessage} />
+        {/* Message Input + File Button */}
+        <div className="p-2 sm:p-4 border-t border-gray-300 bg-white flex items-end gap-2">
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
+            accept="*/*"
+          />
+          {/* File button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+            title="Send file"
+          >
+            <Paperclip size={20} />
+          </button>
+          {/* Message input */}
+          <div className="flex-1">
+            <MessageInput sendMessage={sendMessage} />
+          </div>
+        </div>
       </div>
 
       {/* User List - Mobile Overlay */}

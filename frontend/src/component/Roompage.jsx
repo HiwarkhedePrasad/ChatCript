@@ -3,7 +3,8 @@ import { io } from "socket.io-client";
 import Lobby from "./lobby";
 import ChatRoom from "./chatroom";
 
-const socket = io("https://chatcript.onrender.com");
+// Fix the URL: remove extra spaces!
+const socket = io("https://chatcript.onrender.com"); // ← No trailing spaces!
 
 const RoomPage = () => {
   const [username, setUsername] = useState("");
@@ -13,8 +14,35 @@ const RoomPage = () => {
   const [messages, setMessages] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // 🔥 Handle incoming files
   useEffect(() => {
-    socket.on("room_success", (data) => {
+    const handleReceiveFile = (metadata, file) => {
+      const { username: sender, fileName } = metadata;
+
+      // Create downloadable blob
+      const blob = new Blob([file]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Optional: Add system message
+      const fileMessage = {
+        username: "System",
+        message: `${sender} sent a file: ${fileName}`,
+        time: new Date(),
+      };
+      setMessages((prev) => [...prev, fileMessage]);
+    };
+
+    socket.on("receive_file", handleReceiveFile);
+
+    // Existing listeners
+    socket.on("room_success", () => {
       setInRoom(true);
       setErrorMessage("");
     });
@@ -24,16 +52,13 @@ const RoomPage = () => {
     });
 
     socket.on("receive_message", (data) => {
-      // Add a timestamp to all incoming messages
-      const newMessage = { ...data, time: new Date() };
-      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setMessages((prev) => [...prev, { ...data, time: new Date() }]);
     });
 
-    socket.on("update_user_list", (userList) => {
-      setUsers(userList);
-    });
+    socket.on("update_user_list", setUsers);
 
     return () => {
+      socket.off("receive_file", handleReceiveFile);
       socket.off("room_success");
       socket.off("room_error");
       socket.off("receive_message");
@@ -46,12 +71,7 @@ const RoomPage = () => {
       setErrorMessage("");
       if (username.trim() && roomName.trim()) {
         const payload = { username, roomName, password };
-        // Use the 'createRoom' event name from your backend
-        if (type === "create") {
-          socket.emit("createRoom", payload);
-        } else {
-          socket.emit("join_room", payload);
-        }
+        socket.emit(type === "create" ? "createRoom" : "join_room", payload);
       } else {
         setErrorMessage("Username and Room Name cannot be empty.");
       }
@@ -62,19 +82,25 @@ const RoomPage = () => {
   const sendMessage = useCallback(
     (message) => {
       if (message.trim()) {
-        const messageData = { roomName, username, message };
-        socket.emit("send_message", messageData);
+        socket.emit("send_message", { roomName, username, message });
       }
     },
     [roomName, username]
   );
 
-  // Updated: Leave room by resetting state, as backend only handles disconnect
+  // ✅ NEW: Send file function
+  const sendFile = useCallback(
+    (file) => {
+      if (!inRoom) return;
+      socket.emit("send_file", { roomName, username, fileName: file.name }, file);
+    },
+    [roomName, username, inRoom]
+  );
+
   const leaveRoom = useCallback(() => {
     setInRoom(false);
     setMessages([]);
     setUsers([]);
-    // This effectively takes the user back to the lobby without a full page reload.
   }, []);
 
   return (
@@ -95,6 +121,7 @@ const RoomPage = () => {
           messages={messages}
           users={users}
           sendMessage={sendMessage}
+          sendFile={sendFile} // ✅ Pass down
           leaveRoom={leaveRoom}
         />
       )}
