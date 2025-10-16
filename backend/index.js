@@ -28,14 +28,12 @@ io.on("connection", (socket) => {
       console.log(`Room ${roomName} created by ${username}.`);
     } else {
       socket.emit("room_error", "Room name already exists.");
-      console.log(`Failed to create room ${roomName}, already exists.`);
     }
   });
 
-  // Handle joining a room - FIXED LOGIC
+  // Handle joining a room
   socket.on("join_room", ({ formType, username, roomName, password }) => {
     if (rooms[roomName]) {
-      // Check if password matches
       if (rooms[roomName].password === password) {
         socket.join(roomName);
         if (!rooms[roomName].users.includes(username)) {
@@ -43,8 +41,6 @@ io.on("connection", (socket) => {
         }
         userSocketMap[socket.id] = { roomName, username };
         socket.emit("room_success", `Welcome ${username} to room ${roomName}!`);
-
-        // Notify other users in the room
         socket.to(roomName).emit("receive_message", {
           username: "System",
           message: `${username} has joined the room.`,
@@ -52,23 +48,31 @@ io.on("connection", (socket) => {
         console.log(`${username} joined room ${roomName}`);
       } else {
         socket.emit("room_error", "Incorrect password.");
-        console.log(
-          `${username} failed to join room ${roomName} - incorrect password`
-        );
       }
     } else {
       socket.emit("room_error", "Room does not exist.");
-      console.log(`${username} tried to join non-existent room ${roomName}`);
     }
   });
 
-  // Handle sending messages - FIXED TO BROADCAST TO ALL USERS INCLUDING SENDER
+  // Handle text messages
   socket.on("send_message", ({ roomName, username, message }) => {
     const messageData = { username, message };
     console.log(`Message from ${username} in room ${roomName}: ${message}`);
-
-    // Broadcast to ALL users in the room (including sender)
     io.to(roomName).emit("receive_message", messageData);
+  });
+
+  // ✅ NEW: Handle file transfer
+  socket.on("send_file", ({ roomName, username, fileName }, file) => {
+    console.log(`File "${fileName}" sent by ${username} in room ${roomName}`);
+
+    // Broadcast file to all OTHER users in the room
+    socket.to(roomName).emit("receive_file", { username, fileName }, file);
+
+    // Optional: Notify that file was sent (as a message)
+    io.to(roomName).emit("receive_message", {
+      username: "System",
+      message: `${username} sent a file: ${fileName}`,
+    });
   });
 
   // Handle disconnection
@@ -85,6 +89,7 @@ io.on("connection", (socket) => {
           username: "System",
           message: `${username} has left the room.`,
         });
+        // ✅ Delete room if empty
         if (rooms[roomName].users.length === 0) {
           delete rooms[roomName];
           console.log(`Room ${roomName} deleted as all users left.`);
